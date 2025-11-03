@@ -5,7 +5,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
-import { Download, TrendingUp, TrendingDown, Minus, Clock, Zap, Timer } from "lucide-react"
+import { Download, TrendingUp, TrendingDown, Minus, Clock, Zap, Timer, FileText } from "lucide-react"
+import { toast } from "sonner"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import type { SchedulingResult } from "@/lib/types"
 
 interface ResultsDashboardProps {
@@ -61,7 +68,7 @@ export function ResultsDashboard({ result, algorithmName, selectedAlgorithm }: R
   const waitingRating = getPerformanceRating(result.averageWaitingTime, "time")
   const responseRating = getPerformanceRating(result.averageResponseTime, "time")
 
-  const handleExportResults = () => {
+  const handleExportJSON = () => {
     const exportData = {
       algorithm: algorithmName,
       timestamp: new Date().toISOString(),
@@ -86,6 +93,45 @@ export function ResultsDashboard({ result, algorithmName, selectedAlgorithm }: R
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+    toast.success("Results exported as JSON")
+  }
+
+  const handleExportCSV = () => {
+    const headers = ["Process ID", "Arrival Time", "Burst Time", "Priority", "Waiting Time", "Turnaround Time", "Response Time", "Completion Time"]
+    const rows = result.processes.map((p) => [
+      p.id,
+      p.arrivalTime,
+      p.burstTime,
+      p.priority || 0,
+      p.waitingTime || 0,
+      p.turnaroundTime || 0,
+      p.responseTime || 0,
+      p.completionTime || 0,
+    ])
+
+    const csvContent = [
+      `Algorithm: ${algorithmName}`,
+      `Timestamp: ${new Date().toISOString()}`,
+      `Average Waiting Time: ${result.averageWaitingTime.toFixed(2)}`,
+      `Average Turnaround Time: ${result.averageTurnaroundTime.toFixed(2)}`,
+      `Average Response Time: ${result.averageResponseTime.toFixed(2)}`,
+      `CPU Utilization: ${cpuUtilization.toFixed(2)}%`,
+      `Throughput: ${throughput.toFixed(2)}`,
+      "",
+      headers.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n")
+
+    const blob = new Blob([csvContent], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${selectedAlgorithm}_results_${Date.now()}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success("Results exported as CSV")
   }
 
   return (
@@ -98,10 +144,24 @@ export function ResultsDashboard({ result, algorithmName, selectedAlgorithm }: R
               <CardTitle>Performance Dashboard</CardTitle>
               <CardDescription>{algorithmName} scheduling analysis and insights</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={handleExportResults}>
-              <Download className="w-4 h-4 mr-2" />
-              Export Results
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Results
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportJSON}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export as JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportCSV}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
         <CardContent>

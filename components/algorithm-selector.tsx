@@ -19,6 +19,7 @@ interface AlgorithmSelectorProps {
   onConfigChange: (config: AlgorithmConfig) => void
   onRunSimulation: () => void
   canRunSimulation: boolean
+  isSimulating?: boolean
 }
 
 const algorithmIcons: Record<SchedulingAlgorithm, React.ReactNode> = {
@@ -49,6 +50,7 @@ export function AlgorithmSelector({
   onConfigChange,
   onRunSimulation,
   canRunSimulation,
+  isSimulating = false,
 }: AlgorithmSelectorProps) {
   const algorithms: SchedulingAlgorithm[] = ["FCFS", "RR", "SJF", "PRIORITY"]
 
@@ -220,12 +222,12 @@ export function AlgorithmSelector({
         </div>
 
         {/* Run Simulation Button */}
-        <Button onClick={onRunSimulation} className="w-full" size="lg" disabled={!canRunSimulation}>
+        <Button onClick={onRunSimulation} className="w-full" size="lg" disabled={!canRunSimulation || isSimulating}>
           <Timer className="w-4 h-4 mr-2" />
-          Run {algorithmNames[selectedAlgorithm]} Simulation
+          {isSimulating ? "Running..." : `Run ${algorithmNames[selectedAlgorithm]} Simulation`}
         </Button>
 
-        {!canRunSimulation && (
+        {!canRunSimulation && !isSimulating && (
           <p className="text-xs text-muted-foreground text-center">Add at least one process to run the simulation</p>
         )}
       </CardContent>

@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Trash2, Plus, Edit2, Check, X } from "lucide-react"
+import { Trash2, Plus, Edit2, Check, X, Upload, Download, FileJson } from "lucide-react"
+import { toast } from "sonner"
 import type { Process } from "@/lib/types"
 
 interface ProcessInputProps {
@@ -24,10 +25,34 @@ export function ProcessInput({ processes, onProcessesChange }: ProcessInputProps
   const [editingProcess, setEditingProcess] = useState<Process | null>(null)
 
   const handleAddProcess = () => {
-    if (!newProcess.id.trim()) return
+    if (!newProcess.id.trim()) {
+      toast.error("Invalid process ID", {
+        description: "Process ID cannot be empty."
+      })
+      return
+    }
 
     const processExists = processes.some((p) => p.id === newProcess.id)
-    if (processExists) return
+    if (processExists) {
+      toast.error("Duplicate process ID", {
+        description: `Process ${newProcess.id} already exists.`
+      })
+      return
+    }
+
+    if (newProcess.burstTime < 1) {
+      toast.error("Invalid burst time", {
+        description: "Burst time must be at least 1."
+      })
+      return
+    }
+
+    if (newProcess.arrivalTime < 0) {
+      toast.error("Invalid arrival time", {
+        description: "Arrival time cannot be negative."
+      })
+      return
+    }
 
     const process: Process = {
       id: newProcess.id,
@@ -37,6 +62,9 @@ export function ProcessInput({ processes, onProcessesChange }: ProcessInputProps
     }
 
     onProcessesChange([...processes, process])
+    toast.success("Process added successfully", {
+      description: `Process ${newProcess.id} has been added to the queue.`
+    })
     setNewProcess({
       id: `P${processes.length + 2}`,
       arrivalTime: 0,
@@ -47,6 +75,9 @@ export function ProcessInput({ processes, onProcessesChange }: ProcessInputProps
 
   const handleDeleteProcess = (id: string) => {
     onProcessesChange(processes.filter((p) => p.id !== id))
+    toast.success("Process deleted", {
+      description: `Process ${id} has been removed.`
+    })
   }
 
   const handleEditStart = (process: Process) => {
@@ -85,10 +116,61 @@ export function ProcessInput({ processes, onProcessesChange }: ProcessInputProps
       { id: "P5", arrivalTime: 4, burstTime: 2, priority: 2 },
     ]
     onProcessesChange(sampleProcesses)
+    toast.success("Sample data loaded", {
+      description: `${sampleProcesses.length} sample processes added.`
+    })
   }
 
   const handleClearAll = () => {
     onProcessesChange([])
+    toast.info("All processes cleared", {
+      description: "The process queue is now empty."
+    })
+  }
+
+  const handleExportProcesses = () => {
+    const dataStr = JSON.stringify(processes, null, 2)
+    const blob = new Blob([dataStr], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `processes_${Date.now()}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success("Processes exported", {
+      description: "Process configuration has been downloaded."
+    })
+  }
+
+  const handleImportProcesses = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string
+        const importedProcesses = JSON.parse(content) as Process[]
+        
+        // Validate imported data
+        if (!Array.isArray(importedProcesses)) {
+          throw new Error("Invalid file format")
+        }
+
+        onProcessesChange(importedProcesses)
+        toast.success("Processes imported", {
+          description: `${importedProcesses.length} processes loaded from file.`
+        })
+      } catch (error) {
+        toast.error("Import failed", {
+          description: "Invalid file format. Please upload a valid JSON file."
+        })
+      }
+    }
+    reader.readAsText(file)
+    event.target.value = "" // Reset input
   }
 
   return (
@@ -99,11 +181,30 @@ export function ProcessInput({ processes, onProcessesChange }: ProcessInputProps
             <CardTitle>Process Management</CardTitle>
             <CardDescription>Add, edit, or remove processes from the scheduling queue</CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={handleLoadSampleData}>
+              <FileJson className="w-3 h-3 mr-1" />
               Load Sample
             </Button>
+            <Button variant="outline" size="sm" onClick={handleExportProcesses} disabled={processes.length === 0}>
+              <Download className="w-3 h-3 mr-1" />
+              Export
+            </Button>
+            <Button variant="outline" size="sm" asChild disabled={false}>
+              <label htmlFor="import-processes" className="cursor-pointer">
+                <Upload className="w-3 h-3 mr-1" />
+                Import
+                <input
+                  id="import-processes"
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportProcesses}
+                  className="hidden"
+                />
+              </label>
+            </Button>
             <Button variant="outline" size="sm" onClick={handleClearAll} disabled={processes.length === 0}>
+              <X className="w-3 h-3 mr-1" />
               Clear All
             </Button>
           </div>
